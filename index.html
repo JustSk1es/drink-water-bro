@@ -453,6 +453,27 @@
 
   const notifyBtn = document.getElementById("notifyBtn");
   const notifyStatus = document.getElementById("notifyStatus");
+  const NOTIFY_PREF = "drinkWaterBro.remindersOn";
+
+  function setNotifyPref(on) {
+    try { localStorage.setItem(NOTIFY_PREF, on ? "1" : "0"); } catch (e) { /* ignore */ }
+  }
+  function getNotifyPref() {
+    try { return localStorage.getItem(NOTIFY_PREF) === "1"; } catch (e) { return false; }
+  }
+
+  function turnRemindersOn() {
+    notifyOn = true;
+    firedKeys = {};
+    plannedTimes = computePlannedTimes();
+    notifyBtn.textContent = "🔔 Reminders are ON (tap to turn off)";
+    notifyBtn.classList.add("enabled");
+    setNotifyPref(true);
+    const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
+    const next = plannedTimes.find(t => t.mins > nowMins);
+    notifyStatus.textContent = "Reminders will pop up at each " + selectedDay +
+      " reminder time while this app is open" + (next ? " — next one around " + fmt(next.mins) + "." : " (none left today).");
+  }
 
   notifyBtn.addEventListener("click", async () => {
     // Toggle off when reminders are already on
@@ -461,6 +482,7 @@
       plannedTimes = [];
       notifyBtn.textContent = "🔔 Enable reminders";
       notifyBtn.classList.remove("enabled");
+      setNotifyPref(false);
       notifyStatus.textContent = "Reminders are off. Tap the bell to turn them back on.";
       return;
     }
@@ -476,14 +498,7 @@
       }
     }
     if (Notification.permission === "granted") {
-      notifyOn = true;
-      firedKeys = {};
-      plannedTimes = computePlannedTimes();
-      notifyBtn.textContent = "🔔 Reminders are ON (tap to turn off)";
-      notifyBtn.classList.add("enabled");
-      const next = plannedTimes.find(t => t.mins > (new Date().getHours() * 60 + new Date().getMinutes()));
-      notifyStatus.textContent = "Reminders will pop up at each " + selectedDay +
-        " reminder time while this app is open" + (next ? " — next one around " + fmt(next.mins) + "." : " (none left today).");
+      turnRemindersOn();
     } else {
       notifyStatus.textContent = "Notifications are blocked. Enable them for this site in your browser/iPhone Settings.";
     }
@@ -506,16 +521,16 @@
     els.sleep.value = schedules[selectedDay].sleep;
     renderDayPicker();
     refresh("Example: " + p.name);
-    // Restore reminders automatically if permission was granted before
+    // Restore reminders automatically if permission was granted before.
+    // On installed iPhone web apps, iOS may report permission as "default"
+    // after a cold start even though the user approved it before — in that
+    // case we can't turn reminders on silently (iOS requires a tap), so we
+    // show a clear banner instead of silently leaving them off.
     if ("Notification" in window && Notification.permission === "granted") {
-      notifyOn = true;
-      plannedTimes = computePlannedTimes();
-      notifyBtn.textContent = "🔔 Reminders are ON (tap to turn off)";
+      if (getNotifyPref()) turnRemindersOn();
+    } else if (getNotifyPref()) {
+      notifyStatus.textContent = "🔔 You had reminders on. Tap the bell once to reactivate them for this session.";
       notifyBtn.classList.add("enabled");
-      const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
-      const next = plannedTimes.find(t => t.mins > nowMins);
-      notifyStatus.textContent = "Reminders will pop up at each " + selectedDay +
-        " reminder time while this app is open" + (next ? " — next one around " + fmt(next.mins) + "." : " (none left today).");
     }
   })();
 </script>
