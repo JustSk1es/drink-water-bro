@@ -455,6 +455,15 @@
   const notifyStatus = document.getElementById("notifyStatus");
 
   notifyBtn.addEventListener("click", async () => {
+    // Toggle off when reminders are already on
+    if (notifyOn) {
+      notifyOn = false;
+      plannedTimes = [];
+      notifyBtn.textContent = "🔔 Enable reminders";
+      notifyBtn.classList.remove("enabled");
+      notifyStatus.textContent = "Reminders are off. Tap the bell to turn them back on.";
+      return;
+    }
     if (!("Notification" in window)) {
       notifyStatus.textContent = "This browser doesn't support notifications. On iPhone, add the app to your Home Screen (Share → Add to Home Screen) and open it from there on iOS 16.4+.";
       return;
@@ -470,7 +479,7 @@
       notifyOn = true;
       firedKeys = {};
       plannedTimes = computePlannedTimes();
-      notifyBtn.textContent = "🔔 Reminders are ON";
+      notifyBtn.textContent = "🔔 Reminders are ON (tap to turn off)";
       notifyBtn.classList.add("enabled");
       const next = plannedTimes.find(t => t.mins > (new Date().getHours() * 60 + new Date().getMinutes()));
       notifyStatus.textContent = "Reminders will pop up at each " + selectedDay +
@@ -501,7 +510,7 @@
     if ("Notification" in window && Notification.permission === "granted") {
       notifyOn = true;
       plannedTimes = computePlannedTimes();
-      notifyBtn.textContent = "🔔 Reminders are ON";
+      notifyBtn.textContent = "🔔 Reminders are ON (tap to turn off)";
       notifyBtn.classList.add("enabled");
       const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
       const next = plannedTimes.find(t => t.mins > nowMins);
