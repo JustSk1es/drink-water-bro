@@ -497,6 +497,17 @@
     els.sleep.value = schedules[selectedDay].sleep;
     renderDayPicker();
     refresh("Example: " + p.name);
+    // Restore reminders automatically if permission was granted before
+    if ("Notification" in window && Notification.permission === "granted") {
+      notifyOn = true;
+      plannedTimes = computePlannedTimes();
+      notifyBtn.textContent = "🔔 Reminders are ON";
+      notifyBtn.classList.add("enabled");
+      const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
+      const next = plannedTimes.find(t => t.mins > nowMins);
+      notifyStatus.textContent = "Reminders will pop up at each " + selectedDay +
+        " reminder time while this app is open" + (next ? " — next one around " + fmt(next.mins) + "." : " (none left today).");
+    }
   })();
 </script>
 </body>
