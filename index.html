@@ -186,7 +186,7 @@
     <p class="sleep-tag" id="quietNote"></p>
   </section>
 
-  <footer>Sample data shown for demonstration only. Nothing is saved — refresh and it resets. 💙<br>
+  <footer>Your profile and schedules are saved in this browser only — nothing is sent anywhere. 💙<br>
   On iPhone: tap Share → "Add to Home Screen" to install it as an app (iOS 16.4+ then supports reminders).</footer>
 </div>
 
@@ -210,11 +210,46 @@
   ];
 
   // Per-day schedule state: wake/sleep for each weekday, Sat seeded past midnight.
+  // Saved to localStorage so refreshing keeps your data (nothing leaves the browser).
+  const STORAGE_KEY = "drinkWaterBro.v1";
   let schedules = {};
   let selectedDay = dayNames[(new Date().getDay() + 6) % 7]; // start on today (Mon = 0)
   Object.keys(defaultSchedules).forEach(d => {
     schedules[d] = { ...defaultSchedules[d] };
   });
+
+  function loadSaved() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.schedules) {
+        Object.keys(defaultSchedules).forEach(d => {
+          if (saved.schedules[d] && saved.schedules[d].wake && saved.schedules[d].sleep) {
+            schedules[d] = { ...saved.schedules[d] };
+          }
+        });
+      }
+      if (saved.profile) {
+        if (saved.profile.height) els.height.value = saved.profile.height;
+        if (saved.profile.weight) els.weight.value = saved.profile.weight;
+        if (saved.profile.age) els.age.value = saved.profile.age;
+      }
+    } catch (e) { /* corrupted or unavailable storage — start fresh */ }
+  }
+
+  function saveAll() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        profile: {
+          height: els.height.value,
+          weight: els.weight.value,
+          age: els.age.value
+        },
+        schedules: schedules
+      }));
+    } catch (e) { /* storage full or blocked — app still works, just won't persist */ }
+  }
 
   const els = {
     height: document.getElementById("height"),
@@ -345,7 +380,7 @@
 
   // Feature 1: goal updates live on body-detail changes
   ["height", "weight", "age"].forEach(id => {
-    els[id].addEventListener("input", () => refresh());
+    els[id].addEventListener("input", () => { saveAll(); refresh(); });
   });
 
   // Features 2 & 3: reminder list updates live on schedule changes,
@@ -353,11 +388,13 @@
   ["wake", "sleep"].forEach(id => {
     els[id].addEventListener("change", () => {
       schedules[selectedDay][id] = els[id].value || defaultSchedules[selectedDay][id];
+      saveAll();
       renderDayPicker();
       refresh();
     });
     els[id].addEventListener("input", () => {
       schedules[selectedDay][id] = els[id].value || defaultSchedules[selectedDay][id];
+      saveAll();
       refresh();
     });
   });
@@ -469,6 +506,7 @@
     els.height.value = p.height;
     els.weight.value = p.weight;
     els.age.value = p.age;
+    loadSaved(); // restores profile + per-day schedules if previously saved
     els.wake.value = schedules[selectedDay].wake;
     els.sleep.value = schedules[selectedDay].sleep;
     renderDayPicker();
