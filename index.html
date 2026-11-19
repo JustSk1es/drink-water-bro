@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Drink Water Bro</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#00b4d8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Water Bro">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
   :root {
     --sky: #e0f7fb;
@@ -112,6 +120,9 @@
   }
   .day-btn.selected { background: var(--aqua); color: #fff; border-color: var(--aqua); }
   .day-btn.has-custom { border-style: dashed; border-color: var(--deep); }
+  .notify-btn { background: #ffb703; color: #4a2f00; }
+  .notify-btn:hover { background: #e09c00; }
+  .notify-btn.enabled { background: #2ec4b6; color: #053b36; }
 </style>
 </head>
 <body>
@@ -149,6 +160,8 @@
       </div>
     </div>
     <button id="updateBtn">Update profile</button>
+    <button id="notifyBtn" class="notify-btn">🔔 Enable reminders</button>
+    <p class="values" id="notifyStatus"></p>
     <p class="values" id="profileSummary"></p>
   </section>
 
@@ -172,7 +185,8 @@
     <p class="sleep-tag" id="quietNote"></p>
   </section>
 
-  <footer>Sample data shown for demonstration only. Nothing is saved — refresh and it resets. 💙</footer>
+  <footer>Sample data shown for demonstration only. Nothing is saved — refresh and it resets. 💙<br>
+  On iPhone: tap Share → "Add to Home Screen" to install it as an app (iOS 16.4+ then supports reminders).</footer>
 </div>
 
 <script>
@@ -351,7 +365,91 @@
     refresh("Profile updated ✔");
   });
 
-  // Start with the first Malaysian sample profile filled in
+  // ----- Notifications -----
+  // Reminders fire as browser notifications at each reminder time for the
+  // selected day, while the app is open. Times follow the day's schedule,
+  // so editing wake/sleep instantly reshapes what will fire.
+  let notifyOn = false;
+  let firedKeys = {};
+  let plannedTimes = [];
+
+  function todayName() {
+    return dayNames[(new Date().getDay() + 6) % 7] === undefined
+      ? dayNames[new Date().getDay()]
+      : dayNames[new Date().getDay()];
+  }
+
+  function computePlannedTimes() {
+    const p = current();
+    const wake = toMinutes(p.wake);
+    let sleep = toMinutes(p.sleep);
+    if (sleep <= wake) sleep += 24 * 60;
+    const goalMl = calcGoal();
+    const awakeHours = (sleep - wake) / 60;
+    const sips = Math.max(4, Math.min(10, Math.round(awakeHours / 1.5)));
+    const times = [];
+    for (let i = 0; i < sips; i++) {
+      const t = Math.round(wake + 45 + (i * (sleep - wake - 90)) / (sips - 1 || 1));
+      times.push({ mins: t % (24 * 60), ml: Math.round(goalMl / sips / 10) * 10 });
+    }
+    return times;
+  }
+
+  function checkReminders() {
+    if (!notifyOn) return;
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    plannedTimes.forEach((item, idx) => {
+      const key = todayName() + "-" + item.mins;
+      if (nowMins === item.mins && !firedKeys[key]) {
+        firedKeys[key] = true;
+        const label = fmt(item.mins);
+        try {
+          new Notification("💧 Time to drink water!", {
+            body: "It's " + label + " — drink about " + item.ml + " ml. Stay fresh, bro!",
+            tag: key
+          });
+        } catch (e) { /* notifications unavailable */ }
+      }
+    });
+  }
+
+  const notifyBtn = document.getElementById("notifyBtn");
+  const notifyStatus = document.getElementById("notifyStatus");
+
+  notifyBtn.addEventListener("click", async () => {
+    if (!("Notification" in window)) {
+      notifyStatus.textContent = "This browser doesn't support notifications. On iPhone, add the app to your Home Screen (Share → Add to Home Screen) and open it from there on iOS 16.4+.";
+      return;
+    }
+    if (Notification.permission === "default") {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        notifyStatus.textContent = "Reminders are off — permission was not granted. Tap the bell again to retry.";
+        return;
+      }
+    }
+    if (Notification.permission === "granted") {
+      notifyOn = true;
+      firedKeys = {};
+      plannedTimes = computePlannedTimes();
+      notifyBtn.textContent = "🔔 Reminders are ON";
+      notifyBtn.classList.add("enabled");
+      const next = plannedTimes.find(t => t.mins > (new Date().getHours() * 60 + new Date().getMinutes()));
+      notifyStatus.textContent = "Reminders will pop up at each " + selectedDay +
+        " reminder time while this app is open" + (next ? " — next one around " + fmt(next.mins) + "." : " (none left today).");
+    } else {
+      notifyStatus.textContent = "Notifications are blocked. Enable them for this site in your browser/iPhone Settings.";
+    }
+  });
+
+  setInterval(checkReminders, 15000);
+  // Keep the notification plan in sync when the schedule changes
+  const _origRefresh = refresh;
+  refresh = function (name) {
+    _origRefresh(name);
+    if (notifyOn) plannedTimes = computePlannedTimes();
+  };
   (function init() {
     const p = sampleProfiles[0];
     els.height.value = p.height;
