@@ -161,7 +161,6 @@
     </div>
     <button id="updateBtn">Update profile</button>
     <button id="notifyBtn" class="notify-btn">🔔 Enable reminders</button>
-    <button id="testNotifyBtn" class="notify-btn" hidden>💧 Send test notification</button>
     <p class="values" id="notifyStatus"></p>
     <p class="values" id="profileSummary"></p>
   </section>
@@ -473,24 +472,11 @@
       plannedTimes = computePlannedTimes();
       notifyBtn.textContent = "🔔 Reminders are ON";
       notifyBtn.classList.add("enabled");
-      document.getElementById("testNotifyBtn").hidden = false;
       const next = plannedTimes.find(t => t.mins > (new Date().getHours() * 60 + new Date().getMinutes()));
       notifyStatus.textContent = "Reminders will pop up at each " + selectedDay +
         " reminder time while this app is open" + (next ? " — next one around " + fmt(next.mins) + "." : " (none left today).");
     } else {
       notifyStatus.textContent = "Notifications are blocked. Enable them for this site in your browser/iPhone Settings.";
-    }
-  });
-
-  document.getElementById("testNotifyBtn").addEventListener("click", () => {
-    try {
-      new Notification("💧 Drink Water Bro — test!", {
-        body: "If you can read this, reminders are working. Stay hydrated, bro!",
-        tag: "dwb-test"
-      });
-      notifyStatus.textContent = "Test notification sent — check your system notifications.";
-    } catch (e) {
-      notifyStatus.textContent = "Could not show the test notification: " + e.message;
     }
   });
 
