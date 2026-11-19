@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drink Water Bro</title>
+<style>
+  :root {
+    --sky: #e0f7fb;
+    --aqua: #00b4d8;
+    --deep: #0277a8;
+    --ink: #123a4d;
+    --soft: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(180deg, var(--sky) 0%, #d2f1f7 60%, #c3ecf5 100%);
+    color: var(--ink);
+    line-height: 1.5;
+    padding: 24px 16px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { font-size: 2.1rem; color: var(--deep); }
+  header p { color: #2a6f8f; }
+  .drop { display: inline-block; }
+  section {
+    background: var(--soft);
+    border-radius: 18px;
+    box-shadow: 0 6px 18px rgba(2, 119, 168, 0.12);
+    padding: 22px 24px;
+    margin-bottom: 22px;
+  }
+  section h2 {
+    color: var(--aqua);
+    font-size: 1.25rem;
+    margin-bottom: 12px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+  }
+  label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+  input {
+    width: 100%;
+    padding: 9px 10px;
+    border: 2px solid #bfe9f3;
+    border-radius: 10px;
+    font-size: 1rem;
+    background: #f4fcfe;
+    color: var(--ink);
+  }
+  input:focus { outline: none; border-color: var(--aqua); }
+  button {
+    background: var(--aqua);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 22px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 14px;
+  }
+  button:hover { background: var(--deep); }
+  .values { margin-top: 12px; font-size: 0.9rem; color: #2a6f8f; }
+  .goal-box {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .goal-amount {
+    font-size: 2.6rem;
+    font-weight: 800;
+    color: var(--deep);
+  }
+  .goal-unit { font-size: 1.1rem; color: var(--aqua); font-weight: 700; }
+  .goal-note { font-size: 0.9rem; color: #4b7f99; }
+  ul.reminders { list-style: none; margin-top: 6px; }
+  ul.reminders li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #e3f5fa;
+    font-size: 1rem;
+  }
+  ul.reminders li:last-child { border-bottom: none; }
+  .time-chip {
+    background: #d9f3fa;
+    color: var(--deep);
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 999px;
+    min-width: 78px;
+    text-align: center;
+  }
+  .sleep-tag { color: #b0703a; font-size: 0.85rem; }
+  footer { text-align: center; font-size: 0.8rem; color: #5f93ab; margin-top: 8px; }
+  .day-picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 16px; }
+  .day-btn {
+    margin-top: 0;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    background: #e6f7fb;
+    color: var(--deep);
+    border: 2px solid #bfe9f3;
+    font-weight: 600;
+  }
+  .day-btn.selected { background: var(--aqua); color: #fff; border-color: var(--aqua); }
+  .day-btn.has-custom { border-style: dashed; border-color: var(--deep); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="drop">💧</span> Drink Water Bro</h1>
+    <p>Fresh hydration goals for Malaysia days — no annoying alarms, just a plan.</p>
+  </header>
+
+  <section id="section-profile">
+    <h2>1. Daily Profile</h2>
+    <div class="grid">
+      <div>
+        <label for="height">Height (cm)</label>
+        <input type="number" id="height" value="170" min="80" max="230">
+      </div>
+      <div>
+        <label for="weight">Weight (kg)</label>
+        <input type="number" id="weight" value="68" min="25" max="200">
+      </div>
+      <div>
+        <label for="age">Age</label>
+        <input type="number" id="age" value="28" min="5" max="100">
+      </div>
+    </div>
+    <div id="dayPicker" class="day-picker"></div>
+    <div class="grid" id="dayTimes">
+      <div>
+        <label for="wake">Wake time <span id="dayLabel"></span></label>
+        <input type="time" id="wake" value="07:00">
+      </div>
+      <div>
+        <label for="sleep">Sleep time</label>
+        <input type="time" id="sleep" value="23:00">
+      </div>
+    </div>
+    <button id="updateBtn">Update profile</button>
+    <p class="values" id="profileSummary"></p>
+  </section>
+
+  <section id="section-goal">
+    <h2>2. Water Goal</h2>
+    <div class="goal-box">
+      <div>
+        <span class="goal-amount" id="goalAmount">2.5</span>
+        <span class="goal-unit">litres / day</span>
+      </div>
+      <div>
+        <p class="goal-note" id="goalDetail"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-plan">
+    <h2>3. Reminder Plan</h2>
+    <p class="goal-note" id="planNote"></p>
+    <ul class="reminders" id="reminderList"></ul>
+    <p class="sleep-tag" id="quietNote"></p>
+  </section>
+
+  <footer>Sample data shown for demonstration only. Nothing is saved — refresh and it resets. 💙</footer>
+</div>
+
+<script>
+  // Sample profiles specific to Malaysia, shown on load so the app never opens empty.
+  // Weekdays follow an office routine; weekends (Fri/Sat in many Malaysian states) start later.
+  const defaultSchedules = {
+    Mon: { wake: "06:30", sleep: "23:00" },
+    Tue: { wake: "06:30", sleep: "23:00" },
+    Wed: { wake: "06:30", sleep: "23:00" },
+    Thu: { wake: "06:30", sleep: "23:00" },
+    Fri: { wake: "07:00", sleep: "23:30" },
+    Sat: { wake: "08:30", sleep: "00:30" },
+    Sun: { wake: "08:00", sleep: "23:00" }
+  };
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const sampleProfiles = [
+    { name: "Amir from Shah Alam", height: 170, weight: 68, age: 28 },
+    { name: "Siti from Kota Bharu", height: 158, weight: 52, age: 34 },
+    { name: "Raj from Johor Bahru", height: 175, weight: 80, age: 41 }
+  ];
+
+  // Per-day schedule state: wake/sleep for each weekday, Sat seeded past midnight.
+  let schedules = {};
+  let selectedDay = dayNames[(new Date().getDay() + 6) % 7]; // start on today (Mon = 0)
+  Object.keys(defaultSchedules).forEach(d => {
+    schedules[d] = { ...defaultSchedules[d] };
+  });
+
+  const els = {
+    height: document.getElementById("height"),
+    weight: document.getElementById("weight"),
+    age: document.getElementById("age"),
+    wake: document.getElementById("wake"),
+    sleep: document.getElementById("sleep"),
+    summary: document.getElementById("profileSummary"),
+    goalAmount: document.getElementById("goalAmount"),
+    goalDetail: document.getElementById("goalDetail"),
+    planNote: document.getElementById("planNote"),
+    list: document.getElementById("reminderList"),
+    quietNote: document.getElementById("quietNote"),
+    dayPicker: document.getElementById("dayPicker"),
+    dayLabel: document.getElementById("dayLabel")
+  };
+
+  function toMinutes(hhmm) {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  }
+
+  function fmt(mins) {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = ((h + 11) % 12) + 1;
+    return h12 + ":" + String(m).padStart(2, "0") + " " + ampm;
+  }
+
+  function calcGoal() {
+    const w = Number(els.weight.value) || 0;
+    const hgt = Number(els.height.value) || 0;
+    const a = Number(els.age.value) || 0;
+    // Simple friendly formula: base 35 ml per kg, small tweak for age.
+    let ml = w * 35;
+    if (a < 18) ml *= 1.1;
+    else if (a > 55) ml *= 0.9;
+    if (hgt > 180) ml += 200;
+    if (hgt < 155) ml -= 150;
+    return Math.max(1200, Math.round(ml / 100) * 100);
+  }
+
+  function updateSummary(name) {
+    const p = current();
+    const shown = name ? name + " — " : "";
+    els.summary.textContent = shown + "Height " + p.height + " cm · Weight " + p.weight +
+      " kg · Age " + p.age + " · " + selectedDay + ": awake " + fmt(toMinutes(p.wake)) +
+      " to " + fmt(toMinutes(p.sleep));
+  }
+
+  function current() {
+    const s = schedules[selectedDay];
+    return {
+      height: Number(els.height.value) || 0,
+      weight: Number(els.weight.value) || 0,
+      age: Number(els.age.value) || 0,
+      wake: s.wake || "07:00",
+      sleep: s.sleep || "23:00"
+    };
+  }
+
+  function isDefaultDay(d) {
+    return schedules[d].wake === defaultSchedules[d].wake &&
+      schedules[d].sleep === defaultSchedules[d].sleep;
+  }
+
+  function renderDayPicker() {
+    els.dayPicker.innerHTML = "";
+    dayNames.forEach(d => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "day-btn" + (d === selectedDay ? " selected" : "") +
+        (!isDefaultDay(d) ? " has-custom" : "");
+      btn.textContent = d;
+      btn.addEventListener("click", () => {
+        selectedDay = d;
+        const s = schedules[selectedDay];
+        els.wake.value = s.wake;
+        els.sleep.value = s.sleep;
+        refresh("Showing " + d + " schedule");
+        renderDayPicker();
+      });
+      els.dayPicker.appendChild(btn);
+    });
+  }
+
+  function buildReminders() {
+    const p = current();
+    const goalMl = calcGoal();
+    const wake = toMinutes(p.wake);
+    let sleep = toMinutes(p.sleep);
+    if (sleep <= wake) sleep += 24 * 60; // sleep past midnight
+
+    const awakeHours = (sleep - wake) / 60;
+    const sips = Math.max(4, Math.min(10, Math.round(awakeHours / 1.5)));
+    const perSip = Math.round(goalMl / sips);
+
+    els.list.innerHTML = "";
+    for (let i = 0; i < sips; i++) {
+      const t = Math.round(wake + 45 + (i * (sleep - wake - 90)) / (sips - 1 || 1));
+      const mins = t % (24 * 60);
+      const li = document.createElement("li");
+      const chip = document.createElement("span");
+      chip.className = "time-chip";
+      chip.textContent = fmt(mins);
+      const txt = document.createElement("span");
+      txt.textContent = "Drink about " + Math.round(perSip / 10) * 10 + " ml of water";
+      li.appendChild(chip);
+      li.appendChild(txt);
+      els.list.appendChild(li);
+    }
+
+    els.planNote.textContent = sips + " gentle reminders across your " +
+      awakeHours.toFixed(1) + " waking hours, roughly " + Math.round(perSip / 10) * 10 +
+      " ml each to reach " + (goalMl / 1000).toFixed(1) + " L.";
+    els.quietNote.textContent = "😴 Quiet hours protected on " + selectedDay +
+      ": no reminders between " + fmt(toMinutes(p.sleep)) + " and " + fmt(toMinutes(p.wake)) + ".";
+  }
+
+  function refresh(name) {
+    const goalMl = calcGoal();
+    els.goalAmount.textContent = (goalMl / 1000).toFixed(1);
+    els.goalDetail.textContent = "Based on your body details: weight × 35 ml, with a small age and height adjustment. That's about " +
+      Math.round(goalMl / 250) + " cups a day.";
+    updateSummary(name);
+    buildReminders();
+  }
+
+  // Feature 1: goal updates live on body-detail changes
+  ["height", "weight", "age"].forEach(id => {
+    els[id].addEventListener("input", () => refresh());
+  });
+
+  // Features 2 & 3: reminder list updates live on schedule changes,
+  // and edits are stored for the currently selected day.
+  ["wake", "sleep"].forEach(id => {
+    els[id].addEventListener("change", () => {
+      schedules[selectedDay][id] = els[id].value || defaultSchedules[selectedDay][id];
+      renderDayPicker();
+      refresh();
+    });
+    els[id].addEventListener("input", () => {
+      schedules[selectedDay][id] = els[id].value || defaultSchedules[selectedDay][id];
+      refresh();
+    });
+  });
+
+  document.getElementById("updateBtn").addEventListener("click", () => {
+    refresh("Profile updated ✔");
+  });
+
+  // Start with the first Malaysian sample profile filled in
+  (function init() {
+    const p = sampleProfiles[0];
+    els.height.value = p.height;
+    els.weight.value = p.weight;
+    els.age.value = p.age;
+    els.wake.value = schedules[selectedDay].wake;
+    els.sleep.value = schedules[selectedDay].sleep;
+    renderDayPicker();
+    refresh("Example: " + p.name);
+  })();
+</script>
+</body>
+</html>
