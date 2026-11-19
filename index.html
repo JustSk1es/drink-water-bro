@@ -12,6 +12,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Water Bro">
 <meta name="mobile-web-app-capable" content="yes">
+<script>
+  // Where the push server lives (Cloudflare Worker). Set to "" to disable push.
+  const PUSH_SERVER_URL = "";
+</script>
 <style>
   :root {
     --sky: #e0f7fb;
@@ -458,6 +462,30 @@
   function setNotifyPref(on) {
     try { localStorage.setItem(NOTIFY_PREF, on ? "1" : "0"); } catch (e) { /* ignore */ }
   }
+
+  // ----- Real push notifications (server-sent, work when app is closed) -----
+  // Requires PUSH_SERVER_URL to point at the deployed Cloudflare Worker.
+  async function enablePushInBackground() {
+    if (!PUSH_SERVER_URL || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.register("./sw.js");
+      await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: "BB4143OHSrvRPIxHbFh0D6lKIhftIyRQWLjn_LsjNF6NFwxPnKZw5Prv0sPHEaKRrnbuVfNCQvg-TXvxUOJCpI4"
+      });
+      const schedule = {};
+      Object.keys(schedules).forEach(d => schedule[d] = { ...schedules[d] });
+      await fetch(PUSH_SERVER_URL + "/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...sub.toJSON(), schedule })
+      });
+    } catch (e) {
+      // Push setup failed silently — in-app reminders still work.
+      console.warn("Push setup skipped:", e);
+    }
+  }
   function getNotifyPref() {
     try { return localStorage.getItem(NOTIFY_PREF) === "1"; } catch (e) { return false; }
   }
@@ -469,6 +497,7 @@
     notifyBtn.textContent = "🔔 Reminders are ON (tap to turn off)";
     notifyBtn.classList.add("enabled");
     setNotifyPref(true);
+    enablePushInBackground();
     const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
     const next = plannedTimes.find(t => t.mins > nowMins);
     notifyStatus.textContent = "Reminders will pop up at each " + selectedDay +
