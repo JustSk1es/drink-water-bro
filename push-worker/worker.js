@@ -133,11 +133,12 @@ export default {
       if (!sub.endpoint || !sub.keys) {
         return new Response("bad subscription", { status: 400, headers: cors });
       }
-      const id = (await crypto.subtle.digest("SHA-256", utf8(sub.endpoint)));
-      const key = [...new Uint8Array(id)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
-      // also store the user's per-day schedule summary for push payload
+      const key = (await crypto.subtle.digest("SHA-256", utf8(sub.endpoint)));
+      const id = [...new Uint8Array(key)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+      // also store the user's per-day schedule summary + timezone for push payload
       const sched = sub.schedule || {};
-      await env.SUBSCRIPTIONS.put(key, JSON.stringify({ sub, schedule: sched }));
+      const tzOffsetMin = Number.isFinite(sub.tzOffsetMin) ? sub.tzOffsetMin : 480; // default UTC+8
+      await env.SUBSCRIPTIONS.put(key, JSON.stringify({ sub, schedule: sched, tzOffsetMin }));
       return new Response(JSON.stringify({ ok: true }), { headers: cors });
     }
 
@@ -167,6 +168,10 @@ export default {
       const raw = await env.SUBSCRIPTIONS.get(k.name);
       if (!raw) continue;
       const rec = JSON.parse(raw);
+      // Work out the user's local day/time from their stored UTC offset
+      const localNow = new Date(now.getTime() + rec.tzOffsetMin * 60000);
+      const day = dayNames[localNow.getUTCDay()];
+      const nowMins = localNow.getUTCHours() * 60 + localNow.getUTCMinutes();
       const sched = rec.schedule || {};
       const s = sched[day];
       if (!s || !s.wake || !s.sleep) continue;
@@ -183,7 +188,7 @@ export default {
         if (nowMins >= t && nowMins < t + 15) { due = true; break; }
       }
       if (!due) continue;
-      const firedKey = `${k.name}:${day}:${now.toISOString().slice(0, 13)}`;
+      const firedKey = `${k.name}:${day}:${localNow.toISOString().slice(0, 13)}`;
       if (await env.SUBSCRIPTIONS.get(firedKey)) continue; // already sent this window
       const status = await sendPush(rec.sub,
         { title: "💧 Time to drink water!", body: "Stay hydrated, bro — " + day + " reminder." },

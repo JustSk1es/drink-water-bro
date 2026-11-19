@@ -14,7 +14,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <script>
   // Where the push server lives (Cloudflare Worker). Set to "" to disable push.
-  const PUSH_SERVER_URL = "";
+  const PUSH_SERVER_URL = "https://drink-water-bro-push.drink-water-bro.workers.dev";
 </script>
 <style>
   :root {
@@ -476,10 +476,11 @@
       });
       const schedule = {};
       Object.keys(schedules).forEach(d => schedule[d] = { ...schedules[d] });
+      const tzOffsetMin = -new Date().getTimezoneOffset(); // e.g. Malaysia = 480 (UTC+8)
       await fetch(PUSH_SERVER_URL + "/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...sub.toJSON(), schedule })
+        body: JSON.stringify({ ...sub.toJSON(), schedule, tzOffsetMin })
       });
     } catch (e) {
       // Push setup failed silently — in-app reminders still work.
