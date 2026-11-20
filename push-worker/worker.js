@@ -12,6 +12,12 @@ const VAPID_SUBJECT = "mailto:stanleyjebaretnam@example.com"; // change to your 
 // ---------- tiny Web Push (aes128gcm) implementation ----------
 
 const b64uToBuf = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+const b64u = (buf) => {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
 const concat = (...arrs) => {
   const total = arrs.reduce((a, b) => a + b.length, 0);
   const out = new Uint8Array(total);
@@ -43,10 +49,9 @@ async function vapidToken(endpoint, vapidPrivB64u, vapidPubB64u) {
   const d = b64uToBuf(vapidPrivB64u);
   const jwk = { kty: "EC", crv: "P-256", x: b64u(x), y: b64u(y), d: b64u(d) };
   const key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
-  const sig = new Uint8Array(await crypto.subtle.sign(
+  // WebCrypto ECDSA already returns raw r||s (64 bytes) — no DER conversion needed
+  const rawSig = new Uint8Array(await crypto.subtle.sign(
     { name: "ECDSA", hash: "SHA-256" }, key, signingInput));
-  // DER -> raw r||s
-  const rawSig = derToRaw(sig);
   return `${h}.${c}.${b64u(rawSig)}`;
 }
 
@@ -151,6 +156,32 @@ export default {
       const key = await endpointKey(sub.endpoint);
       await env.SUBSCRIPTIONS.delete(key);
       return new Response(JSON.stringify({ ok: true }), { headers: cors });
+    }
+
+    if (request.method === "GET" && url.pathname === "/debugtoken") {
+      // Diagnostic: return the VAPID token so its signature can be validated offline.
+      const token = await vapidToken("https://web.push.apple.com/X", env.VAPID_PRIVATE, VAPID_PUBLIC);
+      return new Response(token, { headers: cors });
+    }
+
+    if (request.method === "POST" && url.pathname === "/testsend") {
+      // Diagnostic: send a test push to every stored subscription right now.
+      const vapidPriv = env.VAPID_PRIVATE;
+      if (!vapidPriv) return new Response("VAPID_PRIVATE not set", { status: 500, headers: cors });
+      const results = [];
+      const list = await env.SUBSCRIPTIONS.list();
+      for (const k of list.keys) {
+        if (k.name.includes(":")) continue; // skip dedupe markers
+        const raw = await env.SUBSCRIPTIONS.get(k.name);
+        if (!raw) continue;
+        const rec = JSON.parse(raw);
+        const status = await sendPush(rec.sub,
+          { title: "💧 Drink Water Bro — test!", body: "Push is working. Stay hydrated!" },
+          vapidPriv);
+        results.push({ key: k.name.slice(0, 8), status });
+        if (status === 404 || status === 410) await env.SUBSCRIPTIONS.delete(k.name);
+      }
+      return new Response(JSON.stringify({ results }), { headers: cors });
     }
 
     return new Response("Drink Water Bro push server 💧", { headers: cors });
