@@ -465,14 +465,21 @@
 
   // ----- Real push notifications (server-sent, work when app is closed) -----
   // Requires PUSH_SERVER_URL to point at the deployed Cloudflare Worker.
+  function urlB64ToUint8(b64) {
+    const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(raw, c => c.charCodeAt(0));
+  }
   async function enablePushInBackground() {
     if (!PUSH_SERVER_URL || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
     try {
       const reg = await navigator.serviceWorker.register("./sw.js");
       await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) await existing.unsubscribe();
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: "BB4143OHSrvRPIxHbFh0D6lKIhftIyRQWLjn_LsjNF6NFwxPnKZw5Prv0sPHEaKRrnbuVfNCQvg-TXvxUOJCpI4"
+        applicationServerKey: urlB64ToUint8("BB4143OHSrvRPIxHbFh0D6lKIhftIyRQWLjn_LsjNF6NFwxPnKZw5Prv0sPHEaKRrnbuVfNCQvg-TXvxUOJCpI4")
       });
       const schedule = {};
       Object.keys(schedules).forEach(d => schedule[d] = { ...schedules[d] });

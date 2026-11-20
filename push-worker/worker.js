@@ -117,6 +117,11 @@ async function sendPush(subscription, payloadJson, vapidPrivB64u) {
 
 // ---------- API ----------
 
+async function endpointKey(endpoint) {
+  const digest = await crypto.subtle.digest("SHA-256", utf8(endpoint));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+
 export default {
   async fetch(request, env) {
     const cors = {
@@ -133,8 +138,7 @@ export default {
       if (!sub.endpoint || !sub.keys) {
         return new Response("bad subscription", { status: 400, headers: cors });
       }
-      const key = (await crypto.subtle.digest("SHA-256", utf8(sub.endpoint)));
-      const id = [...new Uint8Array(key)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+      const key = await endpointKey(sub.endpoint);
       // also store the user's per-day schedule summary + timezone for push payload
       const sched = sub.schedule || {};
       const tzOffsetMin = Number.isFinite(sub.tzOffsetMin) ? sub.tzOffsetMin : 480; // default UTC+8
@@ -144,9 +148,8 @@ export default {
 
     if (request.method === "DELETE" && url.pathname === "/subscribe") {
       const sub = await request.json();
-      const key = (await crypto.subtle.digest("SHA-256", utf8(sub.endpoint)));
-      const id = [...new Uint8Array(key)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
-      await env.SUBSCRIPTIONS.delete(id);
+      const key = await endpointKey(sub.endpoint);
+      await env.SUBSCRIPTIONS.delete(key);
       return new Response(JSON.stringify({ ok: true }), { headers: cors });
     }
 
