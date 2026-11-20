@@ -489,9 +489,11 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...sub.toJSON(), schedule, tzOffsetMin })
       });
+      try { notifyStatus.textContent += " ✅ Closed-app push also enabled."; } catch (_) {}
     } catch (e) {
-      // Push setup failed silently — in-app reminders still work.
+      // Show the failure so device-specific issues are diagnosable.
       console.warn("Push setup skipped:", e);
+      try { notifyStatus.textContent = "⚠️ In-app reminders are ON, but closed-app push failed: " + e.message; } catch (_) {}
     }
   }
   function getNotifyPref() {
