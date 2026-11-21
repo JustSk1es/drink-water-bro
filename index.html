@@ -216,7 +216,7 @@
   // Saved to localStorage so refreshing keeps your data (nothing leaves the browser).
   const STORAGE_KEY = "drinkWaterBro.v1";
   let schedules = {};
-  let selectedDay = dayNames[(new Date().getDay() + 6) % 7]; // start on today (Mon = 0)
+  let selectedDay = dayNames[new Date().getDay()]; // start on today (dayNames is Sun..Sat, same order as getDay)
   Object.keys(defaultSchedules).forEach(d => {
     schedules[d] = { ...defaultSchedules[d] };
   });
@@ -415,9 +415,7 @@
   let plannedTimes = [];
 
   function todayName() {
-    return dayNames[(new Date().getDay() + 6) % 7] === undefined
-      ? dayNames[new Date().getDay()]
-      : dayNames[new Date().getDay()];
+    return dayNames[new Date().getDay()];
   }
 
   function computePlannedTimes() {
