@@ -147,7 +147,31 @@ export default {
       // also store the user's per-day schedule summary + timezone for push payload
       const sched = sub.schedule || {};
       const tzOffsetMin = Number.isFinite(sub.tzOffsetMin) ? sub.tzOffsetMin : 480; // default UTC+8
-      await env.SUBSCRIPTIONS.put(key, JSON.stringify({ sub, schedule: sched, tzOffsetMin }));
+      const deviceName = (typeof sub.deviceName === "string" && sub.deviceName.trim())
+        ? sub.deviceName.trim().slice(0, 60) : null;
+      const platform = sub.endpoint.includes("web.push.apple.com") ? "Apple" : "Android/Chrome";
+      const record = { sub, schedule: sched, tzOffsetMin, platform, deviceName, added: new Date().toISOString() };
+
+      // Cleanup: keep only one subscription per device. The app identifies a
+      // device by a random deviceId it stores in localStorage, so re-enabling
+      // on the same device replaces its old subscription instead of piling up.
+      if (typeof sub.deviceId === "string" && sub.deviceId) {
+        const list = await env.SUBSCRIPTIONS.list();
+        for (const k of list.keys) {
+          if (k.name.includes(":")) continue; // skip dedupe markers
+          if (k.name === key) continue;
+          const oldRaw = await env.SUBSCRIPTIONS.get(k.name);
+          if (!oldRaw) continue;
+          try {
+            const old = JSON.parse(oldRaw);
+            if (old.deviceId === sub.deviceId) {
+              await env.SUBSCRIPTIONS.delete(k.name);
+            }
+          } catch (e) { /* skip malformed */ }
+        }
+      }
+
+      await env.SUBSCRIPTIONS.put(key, JSON.stringify(record));
       return new Response(JSON.stringify({ ok: true }), { headers: cors });
     }
 

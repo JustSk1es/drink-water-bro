@@ -482,10 +482,31 @@
       const schedule = {};
       Object.keys(schedules).forEach(d => schedule[d] = { ...schedules[d] });
       const tzOffsetMin = -new Date().getTimezoneOffset(); // e.g. Malaysia = 480 (UTC+8)
+      // Stable per-device identity so the server keeps one subscription per device
+      let deviceId, deviceName;
+      try {
+        deviceId = localStorage.getItem("drinkWaterBro.deviceId");
+        if (!deviceId) {
+          deviceId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2);
+          localStorage.setItem("drinkWaterBro.deviceId", deviceId);
+        }
+        deviceName = localStorage.getItem("drinkWaterBro.deviceName");
+        if (!deviceName) {
+          const ua = navigator.userAgent;
+          const isIPhone = /iPhone/.test(ua), isIPad = /iPad/.test(ua), isMac = /Macintosh/.test(ua), isAndroid = /Android/.test(ua);
+          const standalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+          const base = isIPhone ? "iPhone" : isIPad ? "iPad" : isAndroid ? "Android" : isMac ? "Mac" : "Desktop";
+          deviceName = base + (standalone ? " (app)" : " (browser)");
+          localStorage.setItem("drinkWaterBro.deviceName", deviceName);
+        }
+      } catch (e) {
+        deviceId = "anon-" + Math.random().toString(36).slice(2);
+        deviceName = "Unknown device";
+      }
       await fetch(PUSH_SERVER_URL + "/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...sub.toJSON(), schedule, tzOffsetMin })
+        body: JSON.stringify({ ...sub.toJSON(), schedule, tzOffsetMin, deviceId, deviceName })
       });
       try { notifyStatus.textContent += " ✅ Closed-app push also enabled."; } catch (_) {}
     } catch (e) {
