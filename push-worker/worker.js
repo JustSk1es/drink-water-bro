@@ -143,7 +143,6 @@ export default {
       if (!sub.endpoint || !sub.keys) {
         return new Response("bad subscription", { status: 400, headers: cors });
       }
-      const key = await endpointKey(sub.endpoint);
       // also store the user's per-day schedule summary + timezone for push payload
       const sched = sub.schedule || {};
       const tzOffsetMin = Number.isFinite(sub.tzOffsetMin) ? sub.tzOffsetMin : 480; // default UTC+8
@@ -152,32 +151,21 @@ export default {
       const platform = sub.endpoint.includes("web.push.apple.com") ? "Apple" : "Android/Chrome";
       const record = { sub, schedule: sched, tzOffsetMin, platform, deviceName, added: new Date().toISOString() };
 
-      // Cleanup: keep only one subscription per device. The app identifies a
-      // device by a random deviceId it stores in localStorage, so re-enabling
-      // on the same device replaces its old subscription instead of piling up.
-      if (typeof sub.deviceId === "string" && sub.deviceId) {
-        const list = await env.SUBSCRIPTIONS.list();
-        for (const k of list.keys) {
-          if (k.name.includes(":")) continue; // skip dedupe markers
-          if (k.name === key) continue;
-          const oldRaw = await env.SUBSCRIPTIONS.get(k.name);
-          if (!oldRaw) continue;
-          try {
-            const old = JSON.parse(oldRaw);
-            if (old.deviceId === sub.deviceId) {
-              await env.SUBSCRIPTIONS.delete(k.name);
-            }
-          } catch (e) { /* skip malformed */ }
-        }
-      }
-
-      await env.SUBSCRIPTIONS.put(key, JSON.stringify(record));
+      // One subscription per device: the key IS the deviceId, so re-enabling
+      // on the same device overwrites its record instead of piling up.
+      // (KV list() is eventually consistent, so scan-and-delete is unreliable.)
+      const deviceKey = (typeof sub.deviceId === "string" && sub.deviceId.trim())
+        ? "dev-" + await endpointKey(sub.deviceId.trim())
+        : await endpointKey(sub.endpoint); // fallback for clients without deviceId
+      await env.SUBSCRIPTIONS.put(deviceKey, JSON.stringify(record));
       return new Response(JSON.stringify({ ok: true }), { headers: cors });
     }
 
     if (request.method === "DELETE" && url.pathname === "/subscribe") {
       const sub = await request.json();
-      const key = await endpointKey(sub.endpoint);
+      const key = (typeof sub.deviceId === "string" && sub.deviceId.trim())
+        ? "dev-" + await endpointKey(sub.deviceId.trim())
+        : await endpointKey(sub.endpoint);
       await env.SUBSCRIPTIONS.delete(key);
       return new Response(JSON.stringify({ ok: true }), { headers: cors });
     }
