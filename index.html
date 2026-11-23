@@ -515,6 +515,31 @@
       try { notifyStatus.textContent = "⚠️ In-app reminders are ON, but closed-app push failed: " + e.message; } catch (_) {}
     }
   }
+  // Turn push off properly: unsubscribe locally AND delete the server-side
+  // subscription so no more pushes are sent to this device.
+  async function disablePushInBackground() {
+    if (!PUSH_SERVER_URL || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) return;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return;
+      const payload = { endpoint: sub.endpoint };
+      try {
+        const deviceId = localStorage.getItem("drinkWaterBro.deviceId");
+        if (deviceId) payload.deviceId = deviceId;
+      } catch (e) { /* ignore */ }
+      await sub.unsubscribe();
+      await fetch(PUSH_SERVER_URL + "/subscribe", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.warn("Push unsubscribe failed:", e);
+    }
+  }
+
   function getNotifyPref() {
     try { return localStorage.getItem(NOTIFY_PREF) === "1"; } catch (e) { return false; }
   }
@@ -541,6 +566,7 @@
       notifyBtn.textContent = "🔔 Enable reminders";
       notifyBtn.classList.remove("enabled");
       setNotifyPref(false);
+      disablePushInBackground();
       notifyStatus.textContent = "Reminders are off. Tap the bell to turn them back on.";
       return;
     }
